@@ -1,0 +1,366 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  //output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://doadmin:AVNS_r0l8ZMIj6npHXHJRHor@dbaas-db-7962821-do-user-18763274-0.l.db.ondigitalocean.com:25061/turbopic_dashboard_prod_pool?sslmode=require&pgbouncer=true"
+}
+
+enum BillingInterval {
+  day
+  week
+  month
+  year
+}
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  password       String?
+  name           String?
+  firstName      String?
+  lastName       String?
+  googleId       String?          @unique
+  provider       String           @default("credentials")
+  createdAt      DateTime         @default(now())
+  oneTimeTokens  Int              @default(0)
+  stripeCustomerId String?        @unique 
+  sessions       Session[]
+  integrations   Integration[]
+  products       GeneratedProduct[]
+  subscriptions  Subscription[]
+  permissions     Permission[]       @relation("UserPermissions")
+  logs           GenerationLog[]
+  payments       Payment[]
+  oneTimeOrders  OneTimeOrder[]
+  images          Image[]
+  conditions      ConditionGPT[]
+  descriptions    DescriptionGen[]
+  tokenUsage      TokenUsage[]
+  settings        Setting?
+  productUsages ProductUsage[]
+  @@index([createdAt])
+  @@index([oneTimeTokens])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  @@index([createdAt])
+}
+
+model Integration {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  type         String   // 'shopify' | 'woocommerce' | 'amazon'
+  accessToken  String
+  refreshToken String?
+  metadata     Json?
+  shopDomain   String  
+  createdAt    DateTime @default(now())
+  collectionIntegrations CollectionIntegration[] 
+  productUsages ProductUsage[]
+  @@unique([userId, shopDomain]) 
+  @@index([accessToken])
+  @@index([refreshToken])
+  @@index([createdAt])
+}
+
+
+model GeneratedProduct {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  title       String?
+  vendor      String?
+  description String?
+  type        String?     
+  tags        String[]    
+  
+  price       Float?      
+  comparePrice Float?     
+  sku         String?     
+  barcode     String?    
+  weight      Float?      
+  weightUnit  String?     // ("GRAMS", "KILOGRAMS", "OUNCES", "POUNDS")
+  status      String      // 'draft' | 'published' | 'error'
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  seoTitle            String?
+  seoDescription      String?
+
+  images      Image[]     @relation("ProductImages")
+  logs GenerationLog[] @relation("ProductLog")
+  collections  Collection[] @relation("CollectionProducts")
+
+  conditionId  String?
+  condition    ConditionGPT?  @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  conditionCustomGpt String?
+  cronJob String?
+productUsages ProductUsage[]
+  
+  @@index([barcode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model GenerationLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  jsonValue String?
+  productId String?
+  product   GeneratedProduct? @relation("ProductLog", fields: [productId], references: [id])
+  images    Image[]   @relation("LogImages")
+  tokensUsed Int
+  durationMs Int
+  createdAt DateTime @default(now())
+  productUsages ProductUsage[]
+  @@index([tokensUsed])
+  @@index([createdAt])
+}
+
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  title           String?
+  description     String?
+  amountCents      Int
+  tokens          Int
+  interval          BillingInterval
+  currency        String   @default("USD")
+  stripePriceId   String   @unique
+  stripeProductId String
+  createdAt       DateTime @default(now())
+  maxProductUnitsPerMonth Float?
+  permissions     Permission[]       @relation("PlanPermissions")
+  subscriptions   Subscription[]
+  visible         Boolean   @default(true)
+  @@index([tokens])
+  @@index([createdAt])
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+  planId               String
+  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
+  remainingProductUnits  Float?
+  remainingTokens      Int      @default(0)
+  stripeCustomerId     String
+  stripeSubscriptionId String   @unique
+  
+  status               String   // 'active' | 'canceled' | 'trialing' | 'unknown'
+  currentPeriodEnd     DateTime
+  createdAt            DateTime @default(now())
+  productUsages ProductUsage[]
+  @@index([remainingTokens])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  amountCents    Int
+  invoiceId       String   @unique
+  subscriptionId    String?
+  oneTimeProductId  String?
+  currency       String   @default("USD")
+  status         String   // 'succeeded' | 'failed' | etc.
+  paidAt         DateTime @default(now())
+  createdAt      DateTime @default(now())
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OneTimeProduct {
+  id              String   @id @default(cuid())
+  title           String?
+  description     String?
+  amountCents     Int
+  tokens          Int
+  currency        String   @default("USD")
+  stripeProductId String
+  stripePriceId   String   @unique
+  visible         Boolean   @default(true)
+  createdAt       DateTime @default(now())
+  orders          OneTimeOrder[]
+  @@index([tokens])
+  @@index([createdAt])
+}
+
+model OneTimeOrder {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  productId        String
+  tokens          Int
+  product          OneTimeProduct @relation(fields: [productId], references: [id])
+  stripePaymentIntentId String
+  
+  amount            Int
+  status           String   // 'succeeded' | 'pending' | 'canceled'
+  createdAt        DateTime @default(now())
+  @@index([tokens])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Image {
+  id         String              @id @default(cuid())
+  imageUrl   String
+  imagePath  String
+  name       String
+  userId     String
+  createdAt  DateTime            @default(now())
+
+  user       User                @relation(fields: [userId], references: [id])
+  products   GeneratedProduct[]  @relation("ProductImages")
+  logs       GenerationLog[]      @relation("LogImages")
+  @@index([createdAt])
+}
+
+model ConditionGPT {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  GeneratedProduct[]
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([createdAt])
+}
+
+model DescriptionGen {
+  id                    String   @id @default(cuid())
+  userId                String
+  title                 String?
+  message               String?
+  maxTextLength         Int?
+  minTextLength         Int?
+  maxTextLengthSimple   Int?
+  minTextLengthSimple   Int?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([createdAt])
+}
+
+model Setting {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  generationMode       String?
+  messageTitle         String?
+  messageTags          String?
+  messageSeoTitle      String?
+  messageSeoDes        String?
+  messageDes           String?
+  maxDesLength         Int?
+  minDesLength         Int?
+  maxDesLengthSimple   Int?
+  minDesLengthSimple   Int?
+  locale               String?
+  localeDefault        Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([createdAt])
+}
+
+model TokenUsage {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  tokensUsed Int
+  usedAt     DateTime @default(now())
+  @@index([tokensUsed])
+}
+
+model ProductUsage {
+  id              String             @id @default(cuid())
+
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subscriptionId  String?
+  subscription    Subscription?      @relation(fields: [subscriptionId], references: [id])
+
+  productId       String?
+  product         GeneratedProduct?  @relation(fields: [productId], references: [id])
+
+  logGenId        String?
+  logGen          GenerationLog?     @relation(fields: [logGenId], references: [id])
+
+  integrationId   String?
+  integration     Integration?      @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  key             String             // "title", "description", etc.
+  weight          Float
+  usedAt          DateTime           @default(now())
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([integrationId])
+  @@index([usedAt])
+  @@index([key])
+  @@index([productId])
+  @@index([logGenId])
+  @@index([subscriptionId])
+  @@index([createdAt])
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  title       String
+  handle      String
+  updatedAt   DateTime
+  createdAt   DateTime @default(now())
+
+  integrations CollectionIntegration[]
+  products     GeneratedProduct[] @relation("CollectionProducts")
+
+  @@unique([title, handle])
+  @@index([handle])
+  @@index([createdAt])
+}
+
+model CollectionIntegration {
+  id            String   @id @default(cuid())
+  collectionId  String
+  integrationId String
+
+  collection    Collection  @relation(fields: [collectionId], references: [id])
+  integration   Integration @relation(fields: [integrationId], references: [id])
+
+  @@unique([collectionId, integrationId])
+}
+
+model Permission {
+  id    String   @id @default(cuid())
+  key   String   @unique // Наприклад: 'products:max:100', 'language:change:true'
+  users           User[]             @relation("UserPermissions")
+  plans           SubscriptionPlan[] @relation("PlanPermissions")
+}
