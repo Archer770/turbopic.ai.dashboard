@@ -25,33 +25,37 @@ type CollectionInput =
   | { title: string; handle: string };
 
   export async function resolveCollections(
-    input: CollectionInput[]
-  ): Promise<Collection[]> {
-    const collections: Collection[] = [];
-  
-    for (const item of input) {
-      let found: Collection | null = null;
-  
-      if ("id" in item) {
-        found = await db.collection.findUnique({
-          where: { id: item.id },
-        });
-      } else if ("title" in item && "handle" in item) {
-        found = await db.collection.findFirst({
-          where: {
-            title: item.title,
-            handle: item.handle,
-          },
-        });
-      }
-  
-      if (found) {
-        collections.push(found);
-      }
+  input: CollectionInput[]
+): Promise<Collection[]> {
+  const collections: Collection[] = [];
+
+  for (const item of input) {
+    if (!item || typeof item !== "object") {
+      continue; 
     }
-  
-    return collections;
+
+    let found: Collection | null = null;
+
+    if ("id" in item) {
+      found = await db.collection.findUnique({
+        where: { id: item.id },
+      });
+    } else if ("title" in item && "handle" in item) {
+      found = await db.collection.findFirst({
+        where: {
+          title: item.title,
+          handle: item.handle,
+        },
+      });
+    }
+
+    if (found) {
+      collections.push(found);
+    }
   }
+
+  return collections;
+}
 
 // Створення нового продукту
 export async function AddProduct(input: ProductInput, images: ImageInput[], collections_input: CollectionInput[] , userId: string) {
