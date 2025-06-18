@@ -17,15 +17,21 @@ interface LoaderData {
   }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await requireUser(request);
-
   let permissions = {};
+  try{
+    const user = await requireUser(request);
 
-  if(Boolean(user?.id)){
-    permissions = await Promise.all([
-      getEffectivePermissions(user.id),
-    ]);
+    
+
+    if(Boolean(user?.id)){
+      permissions = await Promise.all([
+        getEffectivePermissions(user.id),
+      ]);
+    }
+  }catch(err){
+    console.log(err)
   }
+  
   
 
   return new Response(JSON.stringify({ permissions }), {
