@@ -30,8 +30,8 @@ export default defineConfig(({ command }) => {
       // }),
     ],
     server: {
-      port: Number(process.env.PORT) || 6030,
-      allowedHosts: ["shopifyapp.turbopic.ai"],
+      port: Number(process.env.PORT) || 6026,
+      allowedHosts: ["dashboard.turbopic.ai"],
     },
     ssr: {
       // noExternal: ["@prisma/client"],

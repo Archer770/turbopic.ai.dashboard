@@ -19,9 +19,14 @@ interface LoaderData {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
 
-  const [permissions] = await Promise.all([
+  let permissions = {};
+
+  if(Boolean(user?.id)){
+    permissions = await Promise.all([
       getEffectivePermissions(user.id),
     ]);
+  }
+  
 
   return new Response(JSON.stringify({ permissions }), {
     status: 200,
