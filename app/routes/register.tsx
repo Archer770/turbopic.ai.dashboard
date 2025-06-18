@@ -1,7 +1,6 @@
-import { redirect } from "@remix-run/node";
-import { Form, useActionData, useNavigation } from "@remix-run/react";
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { register, createUserSession } from "~/utils/auth.server";
+import { RegisterForm } from "~/components/register-form";
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
@@ -28,66 +27,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function RegisterPage() {
-  const actionData = useActionData<{ error?: string }>();
-  const navigation = useNavigation();
-
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 border rounded-lg shadow">
-      <h1 className="text-2xl font-semibold mb-4">Create an Account</h1>
-
-      {actionData?.error && (
-        <div className="mb-4 text-red-600">{actionData.error}</div>
-      )}
-
-      <Form method="post" className="space-y-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium">Name</label>
-          <input
-            type="text"
-            name="name"
-            required
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            name="email"
-            required
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium">Password</label>
-          <input
-            type="password"
-            name="password"
-            required
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
-          disabled={navigation.state === "submitting"}
-        >
-          {navigation.state === "submitting" ? "Registering..." : "Register"}
-        </button>
-      </Form>
-
-      <div className="mt-4 text-center">
-        <a href="/" className="text-blue-600 hover:underline">Already have an account? Sign in</a>
-      </div>
-
-      <div className="mt-6">
-        <hr className="my-4" />
-        <a
-          href="/auth/google"
-          className="block text-center bg-white border border-gray-300 py-2 px-4 rounded hover:bg-gray-100"
-        >
-          Continue with Google
-        </a>
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <RegisterForm />
       </div>
     </div>
   );
