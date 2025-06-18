@@ -40,10 +40,13 @@ export default defineConfig(({ command }) => {
     optimizeDeps: {
       exclude: ["sharp"], // <-- ❗ (опційно, але варто)
     },
+    css: {
+      codeSplit: false,
+    },
     build: {
       commonjsOptions: {
         transformMixedEsModules: true,
-        ignoreTryCatch: false, // (не обов’язково, але іноді покращує динамічні require)
+        ignoreTryCatch: false,
       },
     },
   };

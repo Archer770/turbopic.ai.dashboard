@@ -11,6 +11,7 @@ import { useLoaderData } from "@remix-run/react";
 import { getEffectivePermissions } from "./utils/permissions.server"
 import "./tailwind.css";
 import { requireUser } from "./utils/requireUser";
+import tailwindHref from "./tailwind.css?url";
 
 interface LoaderData {
     permissions: {};
@@ -34,13 +35,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   
   
 
-  return new Response(JSON.stringify({ permissions }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  }); 
+  return { permissions }; 
 }
 
 export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: tailwindHref },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
