@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "remix vite:build",
-    "start": "cross-env NODE_ENV=production node server.js",
+    "build": "dotenv -e .env remix vite:build",
+    "start": "dotenv -e .env node server.js",
     "start-workers": "dotenv -e .env node ./app/worker.js",
     "local-start": "remix-serve ./build/server/index.js",
     "docker-start": "npm run setup && npm run start",

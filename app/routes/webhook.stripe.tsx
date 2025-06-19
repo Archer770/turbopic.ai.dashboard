@@ -72,9 +72,11 @@ export const action = async ({ request }: { request: Request }) => {
   if (!sig) return new Response("Missing Stripe signature", { status: 400 });
   const rawBody = await getRequestRawBody(request);
 
+  const endpointSecret = "whsec_HlOrjSfnNK7JbLZueZOHnviVzRJ0S3bR";
+
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
   } catch (err: any) {
     console.error("❌ Invalid signature:", err.message);
     return new Response("Invalid signature", { status: 400 });
