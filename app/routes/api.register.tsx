@@ -6,7 +6,7 @@ export async function action({ request }: { request: Request }) {
 
         const body = await request.json();
 
-        const { email, password, type, metadata } = body;
+        const { email, password, name, type, metadata, accessToken } = body;
 
         console.log(body);
 
@@ -18,56 +18,21 @@ export async function action({ request }: { request: Request }) {
         }
 
         const customer = await db.user.findUnique({ where: { email } });
-            if (customer) {
-                return new Response(
-                JSON.stringify({ error: "Invalid Email" }),
-                    { status: 401, headers: { "Content-Type": "application/json" } }
-                );
-        }
-
-        console.log(customer);
-
-        return new Response(
-            JSON.stringify({ body: "test" }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-
-        
-
-        const user = await db.user.findUnique({ where: { email } });
-            if (!user || !user.password) {
-                return new Response(
-                JSON.stringify({ error: "Invalid credentials" }),
+        if (customer) {
+            return new Response(
+            JSON.stringify({ error: "Invalid Email" }),
                 { status: 401, headers: { "Content-Type": "application/json" } }
-                );
+            );
         }
 
-        const integration = await db.integration.upsert({
-            where: {
-                userId_shopDomain: {
-                userId: user.id,
-                shopDomain: metadata.shopDomain,
-                },
-            },
-            update: {
-                metadata: metadata ?? {},
-            },
-            create: {
-                userId: user.id,
-                type,
-                accessToken,
-                metadata: metadata ?? {},
-                shopDomain: metadata.shopDomain,
-            },
-        });
+        const new_customer = await register({
+            email: email,
+            password: password,
+            name: name
+        })
 
         return new Response(
-            JSON.stringify({
-                accessToken: integration.accessToken,
-                type: integration.type,
-                shopDomain: integration.shopDomain,
-                user,
-            }),
+            JSON.stringify({ customer: new_customer }),
         { status: 200, headers: { "Content-Type": "application/json" } }
         );
 
