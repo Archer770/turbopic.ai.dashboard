@@ -8,7 +8,6 @@ export async function action({ request }: { request: Request }) {
     const authHeader = request.headers.get("Authorization");
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.replace("Bearer ", "").trim() : null;
 
-    // 🔹 Якщо є Bearer Token — логін через інтеграцію
     if (bearerToken) {
       const user = await getUserByIntegrationToken(bearerToken);
 
