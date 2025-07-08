@@ -6,7 +6,7 @@ export async function action({ request }: { request: Request }) {
 
         const body = await request.json();
 
-        const { email, password, name, type, metadata, accessToken } = body;
+        const { email, password, name, type, metadata } = body;
 
         console.log(body);
 
@@ -25,14 +25,42 @@ export async function action({ request }: { request: Request }) {
             );
         }
 
+        const accessToken = crypto.randomUUID();
+
         const new_customer = await register({
             email: email,
             password: password,
             name: name
         })
 
+        const integration = await db.integration.upsert({
+            where: {
+            userId_shopDomain: {
+                userId: new_customer.id,
+                shopDomain: metadata.shopDomain,
+            },
+            },
+            update: {
+            metadata: metadata ?? {},
+            },
+            create: {
+            userId: new_customer.id,
+            type,
+            accessToken,
+            metadata: metadata ?? {},
+            shopDomain: metadata.shopDomain,
+            },
+        });
+
+        
+
         return new Response(
-            JSON.stringify({ customer: new_customer }),
+        JSON.stringify({
+            accessToken: integration.accessToken,
+            type: integration.type,
+            shopDomain: integration.shopDomain,
+            user: new_customer,
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
         );
 
