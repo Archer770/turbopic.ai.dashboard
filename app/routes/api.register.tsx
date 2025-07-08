@@ -1,4 +1,5 @@
 import { register } from "~/utils/auth.server";
+import { db } from "~/utils/db.server";
 
 export async function action({ request }: { request: Request }) {
     try {
@@ -9,17 +10,29 @@ export async function action({ request }: { request: Request }) {
 
         console.log(body);
 
-        return new Response(
-            JSON.stringify({ body: "test" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-
         if (!email || !password || !type) {
             return new Response(
                 JSON.stringify({ error: "Missing required fields" }),
                 { status: 400, headers: { "Content-Type": "application/json" } }
             );
         }
+
+        const user = await db.user.findUnique({ where: { email } });
+            if (user) {
+                return new Response(
+                JSON.stringify({ error: "Invalid Email" }),
+                    { status: 401, headers: { "Content-Type": "application/json" } }
+                );
+        }
+
+        console.log(user);
+
+        return new Response(
+            JSON.stringify({ body: "test" }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+
+        
 
         const user = await db.user.findUnique({ where: { email } });
             if (!user || !user.password) {
