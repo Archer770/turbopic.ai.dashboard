@@ -17,15 +17,15 @@ export async function action({ request }: { request: Request }) {
             );
         }
 
-        const user = await db.user.findUnique({ where: { email } });
-            if (user) {
+        const customer = await db.user.findUnique({ where: { email } });
+            if (customer) {
                 return new Response(
                 JSON.stringify({ error: "Invalid Email" }),
                     { status: 401, headers: { "Content-Type": "application/json" } }
                 );
         }
 
-        console.log(user);
+        console.log(customer);
 
         return new Response(
             JSON.stringify({ body: "test" }),
