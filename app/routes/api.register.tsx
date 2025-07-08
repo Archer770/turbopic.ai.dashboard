@@ -10,7 +10,7 @@ export async function action({ request }: { request: Request }) {
         console.log(body);
 
         return new Response(
-            JSON.stringify(body),
+            JSON.stringify({ body: "test" }),
         { status: 200, headers: { "Content-Type": "application/json" } }
         );
 
