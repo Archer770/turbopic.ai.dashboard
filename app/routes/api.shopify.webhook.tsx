@@ -1,16 +1,20 @@
 import { db } from "~/utils/db.server";
 import { addPaymentLog } from "~/utils/analytic.server";
+import { requireUser } from "~/utils/requireUser";
 
 type WebhookPayload = {
   topic: string;
   shop: string;
-  userId: string;
   payload: any;
 };
 
 export const action = async ({ request }: { request: Request }) => {
   try {
-    const { topic, shop, payload, userId }: WebhookPayload = await request.json();
+    const user = await requireUser(request);
+    
+    const { topic, shop, payload }: WebhookPayload = await request.json();
+
+const userId = user.id;
 
     console.log("🔔 Shopify Webhook Received:", topic);
     console.log("From shop:", shop);
