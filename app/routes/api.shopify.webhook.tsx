@@ -23,13 +23,20 @@ const userId = user.id;
 
     switch (topic) {
             case "APP_SUBSCRIPTIONS_UPDATE": {
-  const subGid = payload.admin_graphql_api_id;
-  const shopGid = payload.admin_graphql_api_shop_id;
-  const planHandle = payload.plan_handle;
-  const amountCents = Math.round(parseFloat(payload.price) * 100);
-  const currency = payload.currency || "USD";
-  const status = payload.status.toLowerCase(); // e.g., active, cancelled, expired, pending
-  const currentPeriodEnd = new Date(payload.updated_at || payload.created_at);
+  const sub = payload.app_subscription;
+
+if (!sub) {
+  console.warn("❌ payload.app_subscription missing");
+  return new Response("Invalid payload", { status: 400 });
+}
+
+const subGid = sub.admin_graphql_api_id;
+const shopGid = sub.admin_graphql_api_shop_id;
+const planHandle = sub.plan_handle;
+const amountCents = Math.round(parseFloat(sub.price || "0") * 100);
+const currency = sub.currency || "USD";
+const status = sub.status.toLowerCase(); // e.g. "cancelled"
+const currentPeriodEnd = new Date(sub.updated_at || sub.created_at);
 
   const isCanceled = ["cancelled", "expired"].includes(status);
 
