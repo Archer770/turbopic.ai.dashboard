@@ -11,7 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://doadmin:AVNS_r0l8ZMIj6npHXHJRHor@dbaas-db-7962821-do-user-18763274-0.l.db.ondigitalocean.com:25061/turbopic_dashboard_prod_pool?sslmode=require&pgbouncer=true"
+  url      = "postgresql://doadmin:AVNS_r0l8ZMIj6npHXHJRHor@dbaas-db-7962821-do-user-18763274-0.l.db.ondigitalocean.com:25060/turbopic_dashboard_prod_1?sslmode=require"
 }
 
 enum BillingInterval {
@@ -135,57 +135,83 @@ model GenerationLog {
   @@index([createdAt])
 }
 
+enum BillingProvider {
+  STRIPE
+  SHOPIFY
+}
+
 model SubscriptionPlan {
-  id              String   @id @default(cuid())
-  title           String?
-  description     String?
-  amountCents      Int
-  tokens          Int
-  interval          BillingInterval
-  currency        String   @default("USD")
-  stripePriceId   String   @unique
-  stripeProductId String
-  createdAt       DateTime @default(now())
+  id                      String   @id @default(cuid())
+  title                   String?
+  description             String?
+  amountCents             Int
+  tokens                  Int
+  interval                BillingInterval
+  currency                String   @default("USD")
+  stripePriceId           String?  @unique
+  stripeProductId         String?
+  shopifyPlanHandle       String?  @unique
+  createdAt               DateTime @default(now())
   maxProductUnitsPerMonth Float?
-  permissions     Permission[]       @relation("PlanPermissions")
-  subscriptions   Subscription[]
-  visible         Boolean   @default(true)
+  permissions             Permission[]       @relation("PlanPermissions")
+  subscriptions           Subscription[]
+  visible                 Boolean   @default(true)
+
   @@index([tokens])
   @@index([createdAt])
 }
 
 model Subscription {
-  id                   String   @id @default(cuid())
-  userId               String
-  user                 User     @relation(fields: [userId], references: [id])
-  planId               String
-  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
-  remainingProductUnits  Float?
-  remainingTokens      Int      @default(0)
-  stripeCustomerId     String
-  stripeSubscriptionId String   @unique
-  
-  status               String   // 'active' | 'canceled' | 'trialing' | 'unknown'
-  currentPeriodEnd     DateTime
-  createdAt            DateTime @default(now())
-  productUsages ProductUsage[]
+  id                        String   @id @default(cuid())
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id])
+  planId                    String
+  plan                      SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  provider                  BillingProvider
+  stripeCustomerId          String? // only for Stripe
+  stripeSubscriptionId      String? @unique
+
+  shopifySubscriptionGid    String? @unique // e.g., gid://shopify/AppSubscription/1029266978
+  shopifyShopGid            String?         // e.g., gid://shopify/Shop/548380009
+
+  status                    String   // 'active' | 'canceled' | 'trialing' | etc.
+  currentPeriodEnd          DateTime
+  remainingTokens           Int      @default(0)
+  remainingProductUnits     Float?
+  createdAt                 DateTime @default(now())
+
+  productUsages             ProductUsage[]
+
+  @@index([provider])
   @@index([remainingTokens])
   @@index([status])
   @@index([createdAt])
 }
 
+
 model Payment {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id])
-  amountCents    Int
-  invoiceId       String   @unique
-  subscriptionId    String?
-  oneTimeProductId  String?
-  currency       String   @default("USD")
-  status         String   // 'succeeded' | 'failed' | etc.
-  paidAt         DateTime @default(now())
-  createdAt      DateTime @default(now())
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
+
+  amountCents         Int
+  currency            String   @default("USD")
+  status              String   // 'succeeded' | 'failed' | 'pending'
+
+  provider            BillingProvider
+
+  invoiceId           String?  @unique // Stripe Invoice ID або custom для Shopify
+  subscriptionId      String?         // Local Subscription.id
+  oneTimeProductId    String?         // Якщо це купівля одноразового товару/послуги
+
+  shopifyPurchaseGid  String?  @unique // gid://shopify/AppPurchaseOneTime/123456
+  shopifyShopGid      String?         // gid://shopify/Shop/548380009
+
+  paidAt              DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  @@index([provider])
   @@index([status])
   @@index([createdAt])
 }
