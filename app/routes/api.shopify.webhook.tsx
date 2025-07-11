@@ -87,6 +87,8 @@ const currentPeriodEnd = new Date(sub.updated_at || sub.created_at);
     invoiceId: subGid,
     subscriptionId: subscription.id,
     oneTimeProductId: undefined,
+    provider: "SHOPIFY"
+    
   });
 
   break;

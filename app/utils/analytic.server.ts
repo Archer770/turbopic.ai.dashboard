@@ -409,6 +409,7 @@ export const addPaymentLog = async ({
     subscriptionId,
     oneTimeProductId,
     paidAt,
+    provider
   }: {
     userId: string;
     amountCents: number;
@@ -418,6 +419,7 @@ export const addPaymentLog = async ({
     subscriptionId?: string;
     oneTimeProductId?: string;
     paidAt?: Date;
+    provider?: string;
   }): Promise<Payment | void> => {
     try {
       return await db.payment.upsert({
@@ -428,6 +430,7 @@ export const addPaymentLog = async ({
           amountCents,
           currency,
           status,
+          provider,
           invoiceId,
           subscriptionId: subscriptionId || null,
           oneTimeProductId: oneTimeProductId || null,
