@@ -44,6 +44,8 @@ const currentPeriodEnd = new Date(sub.updated_at || sub.created_at);
     where: { shopifyPlanHandle: planHandle },
   });
 
+  console.log(JSON.stringify(plan));
+
   if (!plan) {
     console.warn("⚠️ No SubscriptionPlan matched for handle:", planHandle);
     return new Response("Plan not found", { status: 404 });
