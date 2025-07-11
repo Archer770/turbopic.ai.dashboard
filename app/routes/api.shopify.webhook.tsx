@@ -19,7 +19,6 @@ const userId = user.id;
     console.log("🔔 Shopify Webhook Received:", topic);
     console.log("From shop:", shop);
     console.log("User ID:", userId);
-    console.log("Payload:", JSON.stringify(payload, null, 2));
 
     switch (topic) {
             case "APP_SUBSCRIPTIONS_UPDATE": {
@@ -43,8 +42,6 @@ const currentPeriodEnd = new Date(sub.updated_at || sub.created_at);
   const plan = await db.subscriptionPlan.findFirst({
     where: { shopifyPlanHandle: planHandle },
   });
-
-  console.log(JSON.stringify(plan));
 
   if (!plan) {
     console.warn("⚠️ No SubscriptionPlan matched for handle:", planHandle);
@@ -88,7 +85,6 @@ const currentPeriodEnd = new Date(sub.updated_at || sub.created_at);
     subscriptionId: subscription.id,
     oneTimeProductId: undefined,
     provider: "SHOPIFY"
-    
   });
 
   break;

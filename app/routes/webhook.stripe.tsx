@@ -130,6 +130,7 @@ export const action = async ({ request }: { request: Request }) => {
               remainingProductUnits: monthlyProductUnits,
               currentPeriodEnd: new Date((invoice.period_end || invoice.created) * 1000),
               userId,
+              provider: "STRIPE"
             },
             create: {
               stripeSubscriptionId: subscriptionId,
@@ -141,6 +142,7 @@ export const action = async ({ request }: { request: Request }) => {
               currentPeriodEnd: new Date((invoice.period_end || invoice.created) * 1000),
               createdAt: new Date(),
               userId,
+              provider: "STRIPE"
             },
           }).then(console.log);
 
@@ -152,6 +154,7 @@ export const action = async ({ request }: { request: Request }) => {
             invoiceId: invoice.id,
             subscriptionId,
             oneTimeProductId: undefined,
+            provider: "STRIPE"
           });
         }
         break;
