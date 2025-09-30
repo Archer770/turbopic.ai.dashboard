@@ -45,6 +45,8 @@ const worker = new Worker(
     if (job.data.jobType === "product-generation") {
   const ProductGeneration = async () => {
 
+    console.log( 'test444', productId, userId)
+
     await db.generatedProduct.update({
       where: {
           id: productId,
