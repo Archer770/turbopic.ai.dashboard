@@ -43,13 +43,9 @@ export const action = async ({ request }: { request: Request }) => {
     switch (topic) {
       case "APP_SUBSCRIPTIONS_UPDATE": {
         const sub = payload?.app_subscription;
+        if (!sub) return new Response("Invalid payload", { status: 400 });
 
-        if (!sub) {
-          console.warn("❌ payload.app_subscription missing");
-          return new Response("Invalid payload", { status: 400 });
-        }
-
-        const subGid = sub.admin_graphql_api_id;
+        const subGid  = sub.admin_graphql_api_id;
         const shopGid = sub.admin_graphql_api_shop_id;
 
         // Якщо сервісний режим — визначаємо userId за магазином
@@ -61,60 +57,98 @@ export const action = async ({ request }: { request: Request }) => {
           }
         }
 
+        // --- план: шукаємо по handle АБО title (insensitive)
         const planHandleRaw = sub.plan_handle ?? null;
         const planNameRaw   = sub.name ?? sub.plan_name ?? null;
 
         const planHandle = planHandleRaw ? String(planHandleRaw).trim() : null;
         const planName   = planNameRaw   ? String(planNameRaw).trim()   : null;
 
-        // const planHandle = sub.plan_handle;
-        const amountCents = Math.round(parseFloat(sub.price || "0") * 100);
-        const currency = sub.currency || "USD";
-        const status = String(sub.status || "").toLowerCase();
+        const orConds: any[] = [];
+        if (planHandle) orConds.push({ shopifyPlanHandle: { equals: planHandle, mode: "insensitive" } });
+        if (planName)   orConds.push({ title:             { equals: planName,   mode: "insensitive" } });
+        if (planHandle) orConds.push({ title:             { equals: planHandle, mode: "insensitive" } });
+        if (planName)   orConds.push({ shopifyPlanHandle: { equals: planName,   mode: "insensitive" } });
 
-        const rawPeriodEnd =
+        const plan = orConds.length
+          ? await db.subscriptionPlan.findFirst({ where: { OR: orConds } })
+          : null;
+
+        if (!plan) {
+          console.warn("⚠️ No SubscriptionPlan matched", { incoming_handle: planHandle, incoming_name: planName });
+          return new Response("Plan not found", { status: 404 });
+        }
+
+        // --- статус/дати
+        const amountCents = Math.round(parseFloat(sub.price || "0") * 100);
+        const currency    = sub.currency || "USD";
+        const status      = String(sub.status || "").toLowerCase();
+        const isCanceled  = ["cancelled", "expired"].includes(status);
+
+        // Пріоритет: current_period_end / currentPeriodEnd; updated_at/created_at — лише як фолбек
+        const rawEnd =
           sub.current_period_end ??
           sub.currentPeriodEnd ??
           sub.updated_at ??
-          sub.created_at ??
-          null;
+          sub.created_at ?? null;
 
-        if (!rawPeriodEnd) {
+        if (!rawEnd) {
           console.warn("❌ missing current_period_end/currentPeriodEnd/updated_at/created_at");
           return new Response("missing current_period_end", { status: 400 });
         }
 
         const currentPeriodEnd =
-          typeof rawPeriodEnd === "number"
-            ? new Date(rawPeriodEnd * 1000) // якщо в секундах
-            : new Date(String(rawPeriodEnd)); // ISO-строка
+          typeof rawEnd === "number" ? new Date(rawEnd * 1000) : new Date(String(rawEnd));
 
-        const isCanceled = ["cancelled", "expired"].includes(status);
+        // --- (лише для service-mode) тягнемо існуючі залишки й вирішуємо, чи «ресетити»
+        let nextRemainingTokens: number;
+        let nextRemainingUnits: number;
 
-        const orConds = [];
-          if (planHandle) orConds.push({ shopifyPlanHandle: { equals: planHandle, mode: "insensitive" } });
-          if (planName)   orConds.push({ title:             { equals: planName,   mode: "insensitive" } });
-          if (planHandle) orConds.push({ title:             { equals: planHandle, mode: "insensitive" } });
-          if (planName)   orConds.push({ shopifyPlanHandle: { equals: planName,   mode: "insensitive" } });
+        if (isService) {
+          const existing = await db.subscription.findUnique({
+            where: { shopifySubscriptionGid: subGid },
+            select: {
+              id: true,
+              currentPeriodEnd: true,
+              remainingTokens: true,
+              remainingProductUnits: true,
+            },
+          });
 
-          let plan = null;
-          if (orConds.length) {
-            plan = await db.subscriptionPlan.findFirst({ where: { OR: orConds } });
+          if (isCanceled) {
+            nextRemainingTokens = 0;
+            nextRemainingUnits  = 0;
+          } else if (!existing) {
+            // перша поява — стартові значення
+            nextRemainingTokens = plan.tokens;
+            nextRemainingUnits  = plan.maxProductUnitsPerMonth ?? 0;
+          } else {
+            const now   = new Date();
+            const oldEnd = existing.currentPeriodEnd;
+
+            // вважаємо, що новий білінговий цикл настав, якщо стара дата вже минула й нова дата більша/інша
+            const renewed =
+              !!oldEnd &&
+              now >= oldEnd &&
+              currentPeriodEnd.getTime() !== oldEnd.getTime() &&
+              currentPeriodEnd > oldEnd;
+
+            if (renewed) {
+              nextRemainingTokens = plan.tokens;
+              nextRemainingUnits  = plan.maxProductUnitsPerMonth ?? 0;
+            } else {
+              // ще той самий цикл — залишаємо як було
+              nextRemainingTokens = existing.remainingTokens ?? plan.tokens;
+              nextRemainingUnits  = existing.remainingProductUnits ?? (plan.maxProductUnitsPerMonth ?? 0);
+            }
           }
-
-          if (!plan) {
-            console.warn("⚠️ No SubscriptionPlan matched", {
-              incoming_handle: planHandle,
-              incoming_name: planName,
-            });
-            return new Response("Plan not found", { status: 404 });
+        } else {
+          // --- НЕ service-mode (звичайний форвард вебхука) — залишаємо стару поведінку
+          nextRemainingTokens = isCanceled ? 0 : plan.tokens;
+          nextRemainingUnits  = isCanceled ? 0 : (plan.maxProductUnitsPerMonth ?? 0);
         }
 
-        if (!plan) {
-          console.warn("⚠️ No SubscriptionPlan matched for handle:", planHandle);
-          return new Response("Plan not found", { status: 404 });
-        }
-
+        // --- upsert (базові поля оновлюємо завжди; залишки — відповідно до гілки вище)
         const subscription = await db.subscription.upsert({
           where: { shopifySubscriptionGid: subGid },
           update: {
@@ -124,8 +158,8 @@ export const action = async ({ request }: { request: Request }) => {
             provider: "SHOPIFY",
             currentPeriodEnd,
             status,
-            remainingTokens: isCanceled ? 0 : plan.tokens,
-            remainingProductUnits: isCanceled ? 0 : (plan.maxProductUnitsPerMonth ?? 0),
+            remainingTokens: nextRemainingTokens,
+            remainingProductUnits: nextRemainingUnits,
           },
           create: {
             planId: plan.id,
@@ -136,11 +170,12 @@ export const action = async ({ request }: { request: Request }) => {
             status,
             currentPeriodEnd,
             createdAt: new Date(),
-            remainingTokens: isCanceled ? 0 : plan.tokens,
-            remainingProductUnits: isCanceled ? 0 : (plan.maxProductUnitsPerMonth ?? 0),
+            remainingTokens: nextRemainingTokens,
+            remainingProductUnits: nextRemainingUnits,
           },
         });
 
+        // аналітика — як було
         await addPaymentLog({
           userId,
           amountCents,
