@@ -148,6 +148,8 @@ export const action = async ({ request }: { request: Request }) => {
           nextRemainingUnits  = isCanceled ? 0 : (plan.maxProductUnitsPerMonth ?? 0);
         }
 
+        console.log( userId, status, nextRemainingTokens, nextRemainingUnits, currentPeriodEnd )
+
         // --- upsert (базові поля оновлюємо завжди; залишки — відповідно до гілки вище)
         const subscription = await db.subscription.upsert({
           where: { shopifySubscriptionGid: subGid },
