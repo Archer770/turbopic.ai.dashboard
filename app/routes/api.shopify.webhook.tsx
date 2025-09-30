@@ -61,7 +61,13 @@ export const action = async ({ request }: { request: Request }) => {
           }
         }
 
-        const planHandle = sub.plan_handle;
+        const planHandleRaw = sub.plan_handle ?? null;
+        const planNameRaw   = sub.name ?? sub.plan_name ?? null;
+
+        const planHandle = planHandleRaw ? String(planHandleRaw).trim() : null;
+        const planName   = planNameRaw   ? String(planNameRaw).trim()   : null;
+
+        // const planHandle = sub.plan_handle;
         const amountCents = Math.round(parseFloat(sub.price || "0") * 100);
         const currency = sub.currency || "USD";
         const status = String(sub.status || "").toLowerCase();
@@ -85,9 +91,24 @@ export const action = async ({ request }: { request: Request }) => {
 
         const isCanceled = ["cancelled", "expired"].includes(status);
 
-        const plan = await db.subscriptionPlan.findFirst({
-          where: { shopifyPlanHandle: planHandle },
-        });
+        const orConds = [];
+          if (planHandle) orConds.push({ shopifyPlanHandle: { equals: planHandle, mode: "insensitive" } });
+          if (planName)   orConds.push({ title:             { equals: planName,   mode: "insensitive" } });
+          if (planHandle) orConds.push({ title:             { equals: planHandle, mode: "insensitive" } });
+          if (planName)   orConds.push({ shopifyPlanHandle: { equals: planName,   mode: "insensitive" } });
+
+          let plan = null;
+          if (orConds.length) {
+            plan = await db.subscriptionPlan.findFirst({ where: { OR: orConds } });
+          }
+
+          if (!plan) {
+            console.warn("⚠️ No SubscriptionPlan matched", {
+              incoming_handle: planHandle,
+              incoming_name: planName,
+            });
+            return new Response("Plan not found", { status: 404 });
+        }
 
         if (!plan) {
           console.warn("⚠️ No SubscriptionPlan matched for handle:", planHandle);
