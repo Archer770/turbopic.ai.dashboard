@@ -183,6 +183,9 @@ model Subscription {
 
   productUsages             ProductUsage[]
 
+  lastGrantedPeriodEnd  DateTime?
+  lastGrantKey          String?  @unique
+
   @@index([provider])
   @@index([remainingTokens])
   @@index([status])
@@ -389,4 +392,18 @@ model Permission {
   key   String   @unique // Наприклад: 'products:max:100', 'language:change:true'
   users           User[]             @relation("UserPermissions")
   plans           SubscriptionPlan[] @relation("PlanPermissions")
+}
+
+model TokenGrant {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String   // "SHOPIFY"
+  sourceGid      String   // gid://shopify/AppSubscription/...
+  periodEnd      DateTime
+  amount         Int
+  reason         String   // "cycle"
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([userId, provider, sourceGid])
 }
