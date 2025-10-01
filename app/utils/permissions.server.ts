@@ -6,7 +6,7 @@ export async function getEffectivePermissions(userId: string) {
     include: {
       permissions: true,
       subscriptions: {
-        where: { status: "paid" },
+        where: { OR: [{status: "paid"},{status: "active"}] },
         orderBy: { createdAt: "desc" },
         take: 1,
         include: {
