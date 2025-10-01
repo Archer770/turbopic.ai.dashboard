@@ -16,9 +16,6 @@ export async function getEffectivePermissions(userId: string) {
     }
     
   });
-
-
-  console.log(user);
   
 
   const result: PermissionSet = {};
